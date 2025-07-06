@@ -1,0 +1,109 @@
+[project]
+name = "nerf-pytorch"
+version = "0.1.0"
+description = "PyTorch implementation of NeRF (Neural Radiance Fields) for view synthesis"
+authors = [
+    {name = "Yen-Chen Lin", email = "yenchenlin@berkeley.edu"}
+]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=1.21.0,<1.24.0",
+    "torch==2.4.1",
+    "torchvision>=0.9.1",
+    "imageio",
+    "imageio-ffmpeg",
+    "matplotlib",
+    "configargparse",
+    "tensorboard>=2.0",
+    "tqdm",
+    "opencv-python",
+    "rerun-sdk>=0.22.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "flake8",
+    "mypy",
+]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+]
+
+[project.scripts]
+train = "python run_nerf.py"
+download-data = "bash download_example_data.sh"
+test-lego = "python run_nerf.py --config configs/lego.txt"
+test-fern = "python run_nerf.py --config configs/fern.txt"
+render-only = "python run_nerf.py --render_only"
+
+# [build-system]
+# requires = ["hatchling"]
+# build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest",
+    "black",
+    "flake8",
+    "mypy",
+]
+# lockfile = "uv.lock"
+# python = "3.9"
+
+[tool.black]
+line-length = 88
+target-version = ['py37']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503"]
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    ".venv",
+    ".eggs",
+    "*.egg",
+]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short" 

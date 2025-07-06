@@ -1,0 +1,7 @@
+# Cargo.toml for a rust workspace
+
+[workspace]
+resolver = "3"
+members = ["crates/nerf"]
+
+

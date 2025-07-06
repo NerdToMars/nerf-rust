@@ -18,8 +18,12 @@ from load_deepvoxels import load_dv_data
 from load_blender import load_blender_data
 from load_LINEMOD import load_LINEMOD_data
 
+import rerun as rr
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.mps.device_count() > 0 else "cpu")
+
 np.random.seed(0)
 DEBUG = False
 
@@ -222,7 +226,7 @@ def create_nerf(args):
     if len(ckpts) > 0 and not args.no_reload:
         ckpt_path = ckpts[-1]
         print('Reloading from', ckpt_path)
-        ckpt = torch.load(ckpt_path)
+        ckpt = torch.load(ckpt_path, map_location=device)
 
         start = ckpt['global_step']
         optimizer.load_state_dict(ckpt['optimizer_state_dict'])
@@ -275,7 +279,8 @@ def raw2outputs(raw, z_vals, rays_d, raw_noise_std=0, white_bkgd=False, pytest=F
     raw2alpha = lambda raw, dists, act_fn=F.relu: 1.-torch.exp(-act_fn(raw)*dists)
 
     dists = z_vals[...,1:] - z_vals[...,:-1]
-    dists = torch.cat([dists, torch.Tensor([1e10]).expand(dists[...,:1].shape)], -1)  # [N_rays, N_samples]
+    dists = torch.cat([dists, torch.Tensor([1e10]).expand(dists[...,:1].shape).to("mps")], -1)  # [N_rays, N_samples]
+    # dists = torch.cat([dists, torch.Tensor([1e10]).expand(dists[...,:1].shape)], -1)  # [N_rays, N_samples]
 
     dists = dists * torch.norm(rays_d[...,None,:], dim=-1)
 
@@ -386,6 +391,7 @@ def render_rays(ray_batch,
     rgb_map, disp_map, acc_map, weights, depth_map = raw2outputs(raw, z_vals, rays_d, raw_noise_std, white_bkgd, pytest=pytest)
 
     if N_importance > 0:
+        print(f"N_importance: {N_importance}")
 
         rgb_map_0, disp_map_0, acc_map_0 = rgb_map, disp_map, acc_map
 
@@ -460,7 +466,7 @@ def config_parser():
     # rendering options
     parser.add_argument("--N_samples", type=int, default=64, 
                         help='number of coarse samples per ray')
-    parser.add_argument("--N_importance", type=int, default=0,
+    parser.add_argument("--N_importance", type=int, default=128,
                         help='number of additional fine samples per ray')
     parser.add_argument("--perturb", type=float, default=1.,
                         help='set to 0. for no jitter, 1. for jitter')
@@ -536,9 +542,18 @@ def train():
     parser = config_parser()
     args = parser.parse_args()
 
+    # init rerun for visualization open in viewer
+    rr.init("nerf_train", spawn=True)
+
     # Load data
     K = None
     if args.dataset_type == 'llff':
+        # images: [N, H, W, 3] # RGB
+        # poses: [N, 3, 5] # [R, T, F]
+        # bds: [N, 2] # near, far
+        # render_poses: [N, 3, 5] # [R, T, F]
+        # i_test: int # test index
+        
         images, poses, bds, render_poses, i_test = load_llff_data(args.datadir, args.factor,
                                                                   recenter=True, bd_factor=.75,
                                                                   spherify=args.spherify)
@@ -640,6 +655,7 @@ def train():
     render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer = create_nerf(args)
     global_step = start
 
+    
     bds_dict = {
         'near' : near,
         'far' : far,
@@ -728,9 +744,34 @@ def train():
         else:
             # Random from one image
             img_i = np.random.choice(i_train)
-            target = images[img_i]
-            target = torch.Tensor(target).to(device)
             pose = poses[img_i, :3,:4]
+
+            # log transform of the image 
+            # construct a rerun transform3d based on the pose 3x4 matrix
+            # log the transform3d to rerun
+            # log the image to rerun
+            # log the transform3d to rerun
+            cpu_pose = pose.cpu().numpy()
+            transform3d = rr.Transform3D(
+                translation=cpu_pose[:3, -1],
+                mat3x3=cpu_pose[:3, :3]
+            ) # 3x4 RT 
+
+            camera_entity_name = f"world/camera_{img_i}"
+            rr.log(camera_entity_name, transform3d)
+
+            # log camera intrinsics
+            rr.log(f"{camera_entity_name}/image", rr.Pinhole(
+                image_from_camera=K,
+                camera_xyz=rr.ViewCoordinates.RUB
+            ))
+
+            target = images[img_i]
+            # print(f"target shape: {target.shape}") # 400 x 400 x 3
+            # print(f"target dtype: {target.dtype}") # float64
+            rr.log(f"{camera_entity_name}/image", rr.Image(target))
+
+            target = torch.Tensor(target).to(device)
 
             if N_rand is not None:
                 rays_o, rays_d = get_rays(H, W, K, torch.Tensor(pose))  # (H, W, 3), (H, W, 3)
@@ -873,6 +914,10 @@ def train():
 
 
 if __name__=='__main__':
-    torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    # torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    torch.set_default_tensor_type('torch.FloatTensor')
+
+    torch.set_default_dtype(torch.float32)
+    torch.set_default_device(torch.device("mps"))
 
     train()
