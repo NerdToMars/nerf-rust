@@ -73,6 +73,7 @@ def batchify_rays(rays_flat, chunk=1024*32, **kwargs):
 def render(H, W, K, chunk=1024*32, rays=None, c2w=None, ndc=True,
                   near=0., far=1.,
                   use_viewdirs=False, c2w_staticcam=None,
+                  is_debug=False,
                   **kwargs):
     """Render rays
     Args:
@@ -90,6 +91,7 @@ def render(H, W, K, chunk=1024*32, rays=None, c2w=None, ndc=True,
       use_viewdirs: bool. If True, use viewing direction of a point in space in model.
       c2w_staticcam: array of shape [3, 4]. If not None, use this transformation matrix for 
        camera while using other c2w argument for viewing directions.
+      is_debug: bool. If True, log debug information to rerun.
     Returns:
       rgb_map: [batch_size, 3]. Predicted RGB values for rays.
       disp_map: [batch_size]. Disparity map. Inverse of depth.
@@ -113,20 +115,36 @@ def render(H, W, K, chunk=1024*32, rays=None, c2w=None, ndc=True,
         viewdirs = torch.reshape(viewdirs, [-1,3]).float()
 
     sh = rays_d.shape # [..., 3]
+    print(f"rays_o shape: {rays_o.shape}")
+    print(f"rays_d shape: {rays_d.shape}")
+    print(f"ndc: {ndc}")
     if ndc:
         # for forward facing scenes
         rays_o, rays_d = ndc_rays(H, W, K[0][0], 1., rays_o, rays_d)
+        # log rays_o and rays_d to rerun
+        if is_debug:
+            print(f"rays_o shape: {rays_o.shape}")
+            print(f"rays_d shape: {rays_d.shape}")
+            rays = []
+            ray_length = 1.0
+            for i, (ray_o, ray_d) in enumerate(zip(rays_o.cpu().numpy(), rays_d.cpu().numpy())):
+                rerun_arrow = rr.Arrows3D(origins=ray_o, vectors=ray_d * ray_length)
+                rays.append(rerun_arrow)
+                rr.log(f"world/ndc/rays_o/arrow_{i}", rerun_arrow)
 
     # Create ray batch
     rays_o = torch.reshape(rays_o, [-1,3]).float()
     rays_d = torch.reshape(rays_d, [-1,3]).float()
 
     near, far = near * torch.ones_like(rays_d[...,:1]), far * torch.ones_like(rays_d[...,:1])
+    print("near shape: ", near.shape)
+    print("far shape: ", far.shape)
     rays = torch.cat([rays_o, rays_d, near, far], -1)
     if use_viewdirs:
         rays = torch.cat([rays, viewdirs], -1)
 
     # Render and reshape
+    print("rays shape: ", rays.shape)
     all_ret = batchify_rays(rays, chunk, **kwargs)
     for k in all_ret:
         k_sh = list(sh[:-1]) + list(all_ret[k].shape[1:])
@@ -307,7 +325,7 @@ def raw2outputs(raw, z_vals, rays_d, raw_noise_std=0, white_bkgd=False, pytest=F
     if white_bkgd:
         rgb_map = rgb_map + (1.-acc_map[...,None])
 
-    return rgb_map, disp_map, acc_map, weights, depth_map
+    return rgb_map, disp_map, acc_map, weights, depth_map   
 
 
 def render_rays(ray_batch,
@@ -727,6 +745,8 @@ def train():
     for i in trange(start, N_iters):
         time0 = time.time()
 
+        is_debug = (i - start) % 100 == 0
+
         # Sample random ray batch
         if use_batching:
             # Random over all images
@@ -776,6 +796,16 @@ def train():
             if N_rand is not None:
                 rays_o, rays_d = get_rays(H, W, K, torch.Tensor(pose))  # (H, W, 3), (H, W, 3)
 
+                if is_debug:
+                    print(f"rays_o shape: {rays_o.shape}")
+                    print(f"rays_d shape: {rays_d.shape}")
+                    # rays = []
+                    # ray_length = 1.0
+                    # for i, (ray_o, ray_d) in enumerate(zip(rays_o.cpu().numpy(), rays_d.cpu().numpy())):
+                    #     rerun_arrow = rr.Arrows3D(origins=ray_o, vectors=ray_d * ray_length)
+                    #     rays.append(rerun_arrow)
+                    #     rr.log(f"world/rays_o_{img_i}/arrow_{i}", rerun_arrow)
+
                 if i < args.precrop_iters:
                     dH = int(H//2 * args.precrop_frac)
                     dW = int(W//2 * args.precrop_frac)
@@ -794,12 +824,21 @@ def train():
                 select_coords = coords[select_inds].long()  # (N_rand, 2)
                 rays_o = rays_o[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
                 rays_d = rays_d[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
+                if is_debug:
+                    print(f"rays_o shape: {rays_o.shape}")
+                    print(f"rays_d shape: {rays_d.shape}")
+                    ray_length = 10.0
+                    rays = []
+                    for i, (ray_o, ray_d) in enumerate(zip(rays_o.cpu().numpy(), rays_d.cpu().numpy())):
+                        rerun_arrow = rr.Arrows3D(origins=ray_o, vectors=ray_d * ray_length)
+                        rays.append(rerun_arrow)
+                        rr.log(f"world/rays_o_{img_i}/arrow_{i}", rerun_arrow)
                 batch_rays = torch.stack([rays_o, rays_d], 0)
                 target_s = target[select_coords[:, 0], select_coords[:, 1]]  # (N_rand, 3)
 
         #####  Core optimization loop  #####
         rgb, disp, acc, extras = render(H, W, K, chunk=args.chunk, rays=batch_rays,
-                                                verbose=i < 10, retraw=True,
+                                                verbose=i < 10, retraw=True, is_debug=is_debug,
                                                 **render_kwargs_train)
 
         optimizer.zero_grad()

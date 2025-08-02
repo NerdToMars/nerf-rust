@@ -3,6 +3,9 @@ basedir = ./logs
 datadir = ./data/nerf_llff_data/fern
 dataset_type = llff
 
+no_batching = True
+
+
 factor = 8
 llffhold = 8
 

@@ -8,3 +8,6 @@
 data/*
 logs/*
 .DS_Store
+
+# rust
+target/
