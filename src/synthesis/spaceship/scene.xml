@@ -1,8 +1,8 @@
 <scene version="3.0.0">
 	<default name="integrator" value="path" />
 	<default name="spp" value="64" />
-	<default name="resy" value="512" />
-	<default name="resx" value="512" />
+	<default name="resy" value="256" />
+	<default name="resx" value="256" />
 	<default name="max_depth" value="65" />
 	<integrator type="$integrator">
 		<integer name="max_depth" value="$max_depth" />
@@ -12,8 +12,8 @@
 		<transform name="to_world">
 			<matrix value="-0.99069 0.007035 0.135953 -0.519664 9.40074e-010 0.998664 -0.0516768 0.817007 -0.136134 -0.0511957 -0.989367 3.82439 0 0 0 1" />
 		</transform>
-		<float name="focus_distance" value="7"/>
-		<float name="aperture_radius" value="0.01"/>
+		<float name="focus_distance" value="2.5"/>
+		<float name="aperture_radius" value="0.001"/>
 		<sampler type="independent">
 			<integer name="sample_count" value="$spp" />
 		</sampler>

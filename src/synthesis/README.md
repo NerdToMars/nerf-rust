@@ -27,7 +27,7 @@ uv sync
 uv run python main.py
 
 # Generate 50 images with custom settings
-uv run python main.py --num_images 50 --output_dir my_dataset --spp 512 --radius 5.0
+uv run python main.py --num_images 50 --output_dir my_dataset --spp 512 --radius 2.5
 
 # Use a specific random seed for reproducibility
 uv run python main.py --num_images 20 --seed 42
