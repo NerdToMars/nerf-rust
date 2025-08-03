@@ -3,6 +3,8 @@
 ## Env setup
 
 ```
+pip install uv
+uv sync
 . ./.venv/bin/activate
 ```
 
