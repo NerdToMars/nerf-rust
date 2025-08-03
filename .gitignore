@@ -1,13 +1,12 @@
 **/.ipynb_checkpoints
 **/__pycache__
-*.png
 *.mp4
 *.npy
 *.npz
-*.dae
 data/*
 logs/*
 .DS_Store
 
 # rust
 target/
+*.zip
