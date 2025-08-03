@@ -1,6 +1,6 @@
 use crate::hittable::HitRecord;
 use crate::ray::Ray;
-use nalgebra::Vector3;
+use nalgebra::{Vector, Vector3};
 use rand::prelude::*;
 
 fn random_in_unit_sphere() -> Vector3<f32> {
@@ -43,7 +43,13 @@ fn schlick(cosine: f32, ref_idx: f32) -> f32 {
 }
 
 pub trait Material: Sync + Send {
-    fn scatter(&self, ray: &Ray, hit: &HitRecord) -> Option<(Ray, Vector3<f32>)>;
+    fn scatter(&self, _ray: &Ray, _hit: &HitRecord) -> Option<(Ray, Vector3<f32>)> {
+        None
+    }
+
+    fn emitted(&self, _normal: &Vector3<f32>) -> Option<Vector3<f32>> {
+        None
+    }
 }
 
 pub struct Lambertian {
@@ -57,13 +63,13 @@ impl Lambertian {
 }
 
 impl Material for Lambertian {
-    fn scatter(&self, _ray: &Ray, hit: &HitRecord) -> Option<(Ray, Vector3<f32>)> {
+    fn scatter(&self, ray: &Ray, hit: &HitRecord) -> Option<(Ray, Vector3<f32>)> {
         let target = hit.normal + random_in_unit_sphere();
 
         if target.magnitude_squared() < 1e-8 {
-            return Some((Ray::new(hit.p, hit.normal), self.albedo));
+            return Some((Ray::new(hit.p, hit.normal, ray.time()), self.albedo));
         }
-        let scattered = Ray::new(hit.p, target);
+        let scattered = Ray::new(hit.p, target, ray.time());
         Some((scattered, self.albedo))
     }
 }
@@ -89,7 +95,7 @@ impl Material for Metal {
             reflected += self.fuzz * random_in_unit_sphere()
         };
         if reflected.dot(&hit.normal) > 0.0 {
-            let scattered = Ray::new(hit.p, reflected);
+            let scattered = Ray::new(hit.p, reflected, ray.time());
             Some((scattered, self.albedo))
         } else {
             None
@@ -121,12 +127,22 @@ impl Material for Dielectric {
         if let Some(refracted) = refract(&ray.direction(), &outward_normal, ni_over_nt) {
             let reflect_prob = schlick(cosine, self.ref_idx);
             if rand::rng().random_range(0.0..1.0) >= reflect_prob {
-                let scattered = Ray::new(hit.p, refracted);
+                let scattered = Ray::new(hit.p, refracted, ray.time());
                 return Some((scattered, attenuation));
             }
         }
         let reflected = reflect(&ray.direction(), &hit.normal);
-        let scattered = Ray::new(hit.p, reflected);
+        let scattered = Ray::new(hit.p, reflected, ray.time());
         Some((scattered, attenuation))
+    }
+}
+
+pub struct DiffuseLight {
+    pub color: Vector3<f32>,
+}
+
+impl Material for DiffuseLight {
+    fn emitted(&self, _normal: &Vector3<f32>) -> Option<Vector3<f32>> {
+        return Some(self.color)
     }
 }

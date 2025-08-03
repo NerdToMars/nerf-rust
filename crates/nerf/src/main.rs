@@ -6,8 +6,7 @@ mod sphere;
 
 use crate::camera::Camera;
 use crate::hittable::{Hitable, HitableList};
-use crate::material::{Dielectric, Lambertian, Metal};
-use crate::ray::Ray;
+use crate::material::*;
 use crate::sphere::Sphere;
 use nalgebra::Vector3;
 use rand::prelude::*;
@@ -75,30 +74,26 @@ fn random_scene() -> HitableList {
         Vector3::new(-4.0, 1.0, 0.0),
         1.0,
         Metal::new(Vector3::new(0.7, 0.6, 0.5), 0.0),
-
     ));
     world.push(Sphere::new(
         Vector3::new(4.0, 1.0, 0.0),
         1.0,
-        Lambertian::new(Vector3::new(0.4, 0.2, 0.1)),
+        DiffuseLight {
+            color: Vector3::new(0.5, 0.5, 0.5),
+        }, // Lambertian::new(Vector3::new(0.4, 0.2, 0.1)),
+    ));
 
+    let diffuse_light = DiffuseLight {
+        color: Vector3::new(0.8, 0.2, 0.2),
+    };  
+    world.push(Sphere::new_moving(
+        Vector3::new(6.0, 1.0, 0.0),
+        Vector3::new(7.0, 1.0, 0.0),
+        0.5,
+        // Lambertian::new(Vector3::new(0.4, 0.2, 0.5)),
+        diffuse_light,
     ));
     world
-}
-
-fn color(ray: &Ray, world: &HitableList, depth: i32) -> Vector3<f32> {
-    if let Some(hit) = world.hit(ray, 0.001, f32::MAX) {
-        if depth < 50
-            && let Some((scattered, attenuation)) = hit.material.scatter(ray, &hit)
-        {
-            return attenuation.zip_map(&color(&scattered, world, depth + 1), |l, r| l * r);
-        }
-        Vector3::new(0.0, 0.0, 0.0)
-    } else {
-        let unit_direction = ray.direction().normalize();
-        let t = 0.5 * (unit_direction[1] + 1.0);
-        (1.0 - t) * Vector3::new(1.0, 1.0, 1.0) + t * Vector3::new(0.5, 0.7, 1.0)
-    }
 }
 
 fn main() {
@@ -124,6 +119,7 @@ fn main() {
         aperture,
         focus_dist,
     );
+
     let image = (0..ny)
         .into_par_iter()
         .rev()
@@ -137,8 +133,9 @@ fn main() {
 
                             let u = (x as f32 + rng.random_range(0.0..1.0)) / nx as f32;
                             let v = (y as f32 + rng.random_range(0.0..1.0)) / ny as f32;
-                            let ray = cam.get_ray(u, v);
-                            color(&ray, &world, 0)
+                            let time = rng.random_range(0.0..1.0);
+                            let ray = cam.get_ray(u, v, time);
+                            cam.color(&ray, &world, 0)
                         })
                         .sum();
                     col.iter()

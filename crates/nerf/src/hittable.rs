@@ -1,4 +1,4 @@
-use nalgebra::Vector3;
+use nalgebra::{Vector, Vector3};
 use crate::ray::Ray;
 use crate::material::Material;
 
@@ -7,6 +7,12 @@ pub struct HitRecord<'a> {
     pub p: Vector3<f32>,
     pub normal: Vector3<f32>,
     pub material: &'a dyn Material
+}
+
+impl<'a> HitRecord<'a> {
+    pub fn emit(&self) -> Option<Vector3<f32>> {
+        self.material.emitted(&self.normal)
+    }
 }
 
 pub trait Hitable: Sync {

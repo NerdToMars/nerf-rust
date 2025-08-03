@@ -1,4 +1,4 @@
-use crate::ray::Ray;
+use crate::{Hitable, HitableList, ray::Ray};
 use nalgebra::Vector3;
 use rand::prelude::*;
 use std::f32;
@@ -28,6 +28,8 @@ pub struct Camera {
     u: Vector3<f32>,
     v: Vector3<f32>,
     lens_radius: f32,
+    pub max_depth: i32,
+    pub background_color: Vector3<f32>,
 }
 
 impl Camera {
@@ -54,15 +56,46 @@ impl Camera {
             u,
             v,
             lens_radius: aperture / 2.0,
+            max_depth: 50,
+            background_color: Vector3::new(0.0, 0.0, 0.0),
         }
     }
 
-    pub fn get_ray(&self, s: f32, t: f32) -> Ray {
+    pub fn get_ray(&self, s: f32, t: f32, time: f32) -> Ray {
         let rd = self.lens_radius * random_in_unit_disk();
         let offset = self.u * rd.x + self.v * rd.y;
         Ray::new(
             self.origin + offset,
             self.lower_left_corner + s * self.horizontal + t * self.vertical - self.origin - offset,
+            time,
         )
+    }
+
+    pub fn color(&self, ray: &Ray, world: &HitableList, depth: i32) -> Vector3<f32> {
+        if depth > self.max_depth {
+            return Vector3::new(0.0, 0.0, 0.0);
+        }
+
+        if let Some(hit) = world.hit(ray, 0.001, f32::MAX) {
+            let emission_color = hit.emit();
+
+            if let Some((scattered, attenuation)) = hit.material.scatter(ray, &hit) {
+                let scattered_color =
+                    attenuation.zip_map(&self.color(&scattered, world, depth + 1), |l, r| l * r);
+                return emission_color.map_or_else(
+                    || scattered_color,
+                    |emission_color| emission_color + scattered_color,
+                );
+            } else if let Some(emission_color) = emission_color {
+                return emission_color;
+            }
+            Vector3::new(0.0, 0.0, 0.0)
+        } else {
+            self.background_color
+            // for background color
+            // let unit_direction = ray.direction().normalize();
+            // let t = 0.5 * (unit_direction[1] + 1.0);
+            // (1.0 - t) * Vector3::new(1.0, 1.0, 1.0) + t * Vector3::new(0.5, 0.7, 1.0)
+        }
     }
 }
