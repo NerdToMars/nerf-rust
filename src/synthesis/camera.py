@@ -71,8 +71,7 @@ class Camera:
         print("focus distance: ", self.focus_distance)
         print("focus distance type: ", type(self.focus_distance))
         print("shape of focus distance: ", self.focus_distance.shape)
-        # numpy array to float
-        focus_distance = float(self.focus_distance)
+
         return rr.Pinhole(
             focal_length=[self.intrinsic_matrix[0, 0], self.intrinsic_matrix[1, 1]],
             width=self.film_size[0],
@@ -90,6 +89,7 @@ def to_world_matrix_to_rerun_transform(to_world: np.ndarray) -> rr.Transform3D:
     print("to world shape: ", to_world.shape)
     print("to world type: ", type(to_world))
     return rr.Transform3D(translation=to_world[:3, 3], mat3x3=to_world[:3, :3])
+
 
 def get_camera_params(scene) -> Camera:
     params = mi.traverse(scene)

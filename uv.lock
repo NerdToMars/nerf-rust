@@ -2072,15 +2072,19 @@ wheels = [
 [[package]]
 name = "synthesis"
 version = "0.1.0"
-source = { virtual = "src/synthesis" }
+source = { editable = "src/synthesis" }
 dependencies = [
     { name = "mitsuba" },
+    { name = "numpy" },
+    { name = "pillow" },
     { name = "rerun-sdk" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "mitsuba", specifier = "==3.6.4" },
+    { name = "numpy", specifier = ">=1.21.0" },
+    { name = "pillow", specifier = ">=8.0.0" },
     { name = "rerun-sdk", specifier = ">=0.23.1" },
 ]
 

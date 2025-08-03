@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "synthesis"
 version = "0.1.0"
@@ -6,4 +10,10 @@ requires-python = ">=3.9"
 dependencies = [
     "mitsuba==3.6.4",
     "rerun-sdk>=0.23.1",
+    "numpy>=1.21.0",
+    "pillow>=8.0.0",
 ]
+
+[tool.setuptools.packages.find]
+include = ["*"]
+exclude = ["output*", "spaceship*", "__pycache__*", "*.pyc"]
